@@ -80,12 +80,13 @@ class ScriptRunnerApp : Application() {
 
     @Volatile
     private var currentProcess: Process? = null
-    private lateinit var exitCodeLabel: Label
+
     private lateinit var editorArea: CodeArea
     private lateinit var outputArea: TextArea
     private lateinit var runButton: Button
     private lateinit var stopButton: Button
     private lateinit var statusLabel: Label
+    private lateinit var exitCodeLabel: Label
 
     override fun start(primaryStage: Stage) {
         editorArea = createEditorArea()
@@ -119,9 +120,9 @@ class ScriptRunnerApp : Application() {
 
         setRunningState(isRunning = false)
         updateStatus("Status: idle")
+        updateExitCode(null)
         preloadSampleScript()
         applyHighlighting()
-        updateExitCode(null)
     }
 
     override fun stop() {
@@ -180,11 +181,13 @@ class ScriptRunnerApp : Application() {
     }
 
     /**
-     * Creates a simple status bar showing the current state.
+     * Creates a status bar showing the current state and last exit code.
      */
     private fun createStatusBar(): HBox {
         statusLabel = Label("Status: idle")
-        exitCodeLabel = Label("Last exit: n/a")
+        exitCodeLabel = Label("Last exit: n/a").apply {
+            styleClass.add("exit-code-label")
+        }
 
         val box = HBox(10.0, statusLabel, exitCodeLabel)
         box.alignment = Pos.CENTER_LEFT
@@ -207,6 +210,7 @@ class ScriptRunnerApp : Application() {
 
         outputArea.clear()
         updateStatus("Status: running")
+        updateExitCode(null)
 
         val scriptText = editorArea.text
         val scriptFile: Path = try {
@@ -340,6 +344,27 @@ class ScriptRunnerApp : Application() {
     }
 
     /**
+     * Updates the exit code label with color indication.
+     */
+    private fun updateExitCode(exitCode: Int?) {
+        exitCodeLabel.styleClass.removeAll("exit-ok", "exit-error")
+
+        when (exitCode) {
+            null -> {
+                exitCodeLabel.text = "Last exit: n/a"
+            }
+            0 -> {
+                exitCodeLabel.text = "Last exit: 0"
+                exitCodeLabel.styleClass.add("exit-ok")
+            }
+            else -> {
+                exitCodeLabel.text = "Last exit: $exitCode"
+                exitCodeLabel.styleClass.add("exit-error")
+            }
+        }
+    }
+
+    /**
      * Sets run/stop button state based on whether a process is running.
      */
     private fun setRunningState(isRunning: Boolean) {
@@ -404,23 +429,5 @@ class ScriptRunnerApp : Application() {
         }
 
         return spansBuilder.create()
-    }
-    private fun updateExitCode(exitCode: Int?) {
-        when (exitCode) {
-            null -> {
-                exitCodeLabel.text = "Last exit: n/a"
-                exitCodeLabel.styleClass.removeAll("exit-ok", "exit-error")
-            }
-            0 -> {
-                exitCodeLabel.text = "Last exit: 0"
-                exitCodeLabel.styleClass.removeAll("exit-ok", "exit-error")
-                exitCodeLabel.styleClass.add("exit-ok")
-            }
-            else -> {
-                exitCodeLabel.text = "Last exit: $exitCode"
-                exitCodeLabel.styleClass.removeAll("exit-ok", "exit-error")
-                exitCodeLabel.styleClass.add("exit-error")
-            }
-        }
     }
 }

@@ -89,11 +89,35 @@
     -fx-font-size: 11px;
 }
 
-/* Exit code label colors */
-.exit-ok {
+/* Exit code label base style */
+.status-bar .exit-code-label {
+    -fx-text-fill: #cccccc;
+    -fx-font-size: 11px;
+}
+
+/* Green on success */
+.status-bar .exit-code-label.exit-ok {
     -fx-text-fill: #4caf50;   /* green */
 }
 
-.exit-error {
+/* Red on error / non-zero */
+.status-bar .exit-code-label.exit-error {
     -fx-text-fill: #f44336;   /* red */
+}
+
+.error-list {
+    -fx-background-color: #1e1e1e;
+    -fx-control-inner-background: #1e1e1e;
+    -fx-padding: 2 4 2 4;
+}
+
+.error-list .list-cell {
+    -fx-text-fill: #f48771;           /* orange/red, like problems panel */
+    -fx-font-size: 11px;
+    -fx-font-family: "JetBrains Mono", "Consolas", "Menlo", "Courier New", monospace;
+}
+
+.error-list .list-cell:selected {
+    -fx-background-color: #094771;
+    -fx-text-fill: #ffffff;
 }
