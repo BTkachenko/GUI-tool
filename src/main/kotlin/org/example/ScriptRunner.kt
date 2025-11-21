@@ -2,17 +2,21 @@ package org.example
 
 import javafx.application.Application
 import javafx.application.Platform
+import javafx.collections.FXCollections
+import javafx.collections.ObservableList
 import javafx.geometry.Orientation
 import javafx.geometry.Pos
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.ListView
 import javafx.scene.control.SplitPane
 import javafx.scene.control.TextArea
 import javafx.scene.control.ToolBar
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
+import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
@@ -30,7 +34,8 @@ import java.util.regex.Pattern
 
 /**
  * JavaFX application for running Kotlin scripts (.kts) using `kotlinc -script`.
- * Uses RichTextFX CodeArea for the editor with basic keyword highlighting.
+ * Uses RichTextFX CodeArea for the editor with keyword highlighting, shows live output,
+ * exit code indicator and an optional error list that appears only when errors are present.
  */
 class ScriptRunnerApp : Application() {
 
@@ -68,6 +73,14 @@ class ScriptRunnerApp : Application() {
         )
 
         /**
+         * Matches kotlinc error locations, e.g.:
+         * /tmp/.../script.kts:2:5: error: unresolved reference: foo
+         */
+        private val ERROR_LOCATION_PATTERN: Pattern = Pattern.compile(
+            "^(.+?):(\\d+):(\\d+):\\s+error:(.*)$"
+        )
+
+        /**
          * Application entry point.
          */
         @JvmStatic
@@ -87,10 +100,14 @@ class ScriptRunnerApp : Application() {
     private lateinit var stopButton: Button
     private lateinit var statusLabel: Label
     private lateinit var exitCodeLabel: Label
+    private lateinit var errorListView: ListView<ScriptError>
+
+    private val errorItems: ObservableList<ScriptError> = FXCollections.observableArrayList()
 
     override fun start(primaryStage: Stage) {
         editorArea = createEditorArea()
         outputArea = createOutputArea()
+        errorListView = createErrorListView()
 
         val editorContainer = VirtualizedScrollPane(editorArea)
 
@@ -102,9 +119,14 @@ class ScriptRunnerApp : Application() {
         val toolbar = createToolbar()
         val statusBar = createStatusBar()
 
+        val centerContainer = VBox(splitPane, errorListView).apply {
+            VBox.setVgrow(splitPane, Priority.ALWAYS)
+            VBox.setVgrow(errorListView, Priority.NEVER)
+        }
+
         val root = BorderPane().apply {
             top = toolbar
-            center = splitPane
+            center = centerContainer
             bottom = statusBar
         }
 
@@ -121,6 +143,7 @@ class ScriptRunnerApp : Application() {
         setRunningState(isRunning = false)
         updateStatus("Status: idle")
         updateExitCode(null)
+        clearErrors()
         preloadSampleScript()
         applyHighlighting()
     }
@@ -158,6 +181,33 @@ class ScriptRunnerApp : Application() {
         area.styleClass.add("output-area")
         HBox.setHgrow(area, Priority.ALWAYS)
         return area
+    }
+
+    /**
+     * Creates the list view for displaying parsed compilation errors.
+     * The list is hidden by default and only becomes visible when errors are added.
+     */
+    private fun createErrorListView(): ListView<ScriptError> {
+        val listView = ListView<ScriptError>(errorItems)
+        listView.styleClass.add("error-list")
+
+        // Hidden by default.
+        listView.isVisible = false
+        listView.isManaged = false
+
+        // Keep error panel small and non-intrusive.
+        listView.prefHeight = 90.0
+        listView.minHeight = 60.0
+        listView.maxHeight = 110.0
+
+        listView.setOnMouseClicked { event ->
+            if (event.clickCount == 2) {
+                val selected = listView.selectionModel.selectedItem ?: return@setOnMouseClicked
+                navigateToError(selected)
+            }
+        }
+
+        return listView
     }
 
     /**
@@ -209,6 +259,7 @@ class ScriptRunnerApp : Application() {
         }
 
         outputArea.clear()
+        clearErrors()
         updateStatus("Status: running")
         updateExitCode(null)
 
@@ -286,6 +337,7 @@ class ScriptRunnerApp : Application() {
         executor.submit {
             process.errorStream.bufferedReader(StandardCharsets.UTF_8).useLines { lines ->
                 lines.forEach { line ->
+                    handleErrorLine(line)
                     appendOutput("[err] $line\n")
                 }
             }
@@ -353,10 +405,12 @@ class ScriptRunnerApp : Application() {
             null -> {
                 exitCodeLabel.text = "Last exit: n/a"
             }
+
             0 -> {
                 exitCodeLabel.text = "Last exit: 0"
                 exitCodeLabel.styleClass.add("exit-ok")
             }
+
             else -> {
                 exitCodeLabel.text = "Last exit: $exitCode"
                 exitCodeLabel.styleClass.add("exit-error")
@@ -429,5 +483,85 @@ class ScriptRunnerApp : Application() {
         }
 
         return spansBuilder.create()
+    }
+
+    /**
+     * Clears the current list of errors and hides the error list view.
+     */
+    private fun clearErrors() {
+        errorItems.clear()
+        errorListView.isVisible = false
+        errorListView.isManaged = false
+    }
+
+    /**
+     * Parses potential error location lines from kotlinc stderr.
+     */
+    private fun handleErrorLine(line: String) {
+        val matcher = ERROR_LOCATION_PATTERN.matcher(line)
+        if (!matcher.find()) {
+            return
+        }
+
+        val lineNumber = matcher.group(2).toIntOrNull() ?: return
+        val columnNumber = matcher.group(3).toIntOrNull() ?: 1
+        val message = matcher.group(4).trim()
+
+        val error = ScriptError(
+            line = lineNumber,
+            column = columnNumber,
+            message = message,
+            rawLine = line
+        )
+
+        Platform.runLater {
+            errorItems.add(error)
+
+            if (!errorListView.isVisible) {
+                errorListView.isVisible = true
+                errorListView.isManaged = true
+            }
+        }
+    }
+
+    /**
+     * Moves the caret to the error location in the editor and scrolls it into view.
+     */
+    private fun navigateToError(error: ScriptError) {
+        if (editorArea.paragraphs.isEmpty()) {
+            return
+        }
+
+        val requestedLineIndex = (error.line - 1).coerceAtLeast(0)
+        val maxLineIndex = editorArea.paragraphs.size - 1
+        val safeLineIndex = requestedLineIndex.coerceAtMost(maxLineIndex)
+
+        // Run later so focus change happens *after* the mouse event on the ListView is processed.
+        Platform.runLater {
+            try {
+                editorArea.requestFocus()
+                editorArea.moveTo(safeLineIndex, 0)
+                editorArea.requestFollowCaret()
+            } catch (ex: Exception) {
+                System.err.println(
+                    "Failed to navigate to error at line ${error.line}: ${ex.message}"
+                )
+            }
+        }
+    }
+
+    data class ScriptError(
+        val line: Int,
+        val column: Int,
+        val message: String,
+        val rawLine: String
+    ) {
+
+        /**
+         * Human-readable representation shown in the list view.
+         */
+        override fun toString(): String {
+            return "Line $line, Col $column: $message"
+        }
     }
 }

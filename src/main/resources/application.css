@@ -39,7 +39,15 @@
 .code-area {
     -fx-background-color: #1e1e1e;
     -fx-padding: 6 4 6 4;
+    -fx-caret-color: #ff5555; /* red caret */
 }
+
+/* Fallback for RichTextFX caret node */
+.code-area .caret {
+    -fx-stroke: #ff5555;
+    -fx-fill: #ff5555;
+}
+
 
 /* Actual text inside CodeArea (RichTextFX Text nodes) */
 .code-area .text {
@@ -105,6 +113,7 @@
     -fx-text-fill: #f44336;   /* red */
 }
 
+/* Error list under the editor */
 .error-list {
     -fx-background-color: #1e1e1e;
     -fx-control-inner-background: #1e1e1e;
@@ -113,7 +122,7 @@
 
 .error-list .list-cell {
     -fx-text-fill: #f48771;           /* orange/red, like problems panel */
-    -fx-font-size: 11px;
+    -fx-font-size: 10px;              /* było 11, można zmniejszyć */
     -fx-font-family: "JetBrains Mono", "Consolas", "Menlo", "Courier New", monospace;
 }
 
