@@ -1,7 +1,6 @@
 package org.example
 
 import javafx.application.Application
-import javafx.application.Application.launch
 import javafx.application.Platform
 import javafx.geometry.Orientation
 import javafx.geometry.Pos
