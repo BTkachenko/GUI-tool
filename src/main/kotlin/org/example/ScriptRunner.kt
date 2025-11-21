@@ -80,7 +80,7 @@ class ScriptRunnerApp : Application() {
 
     @Volatile
     private var currentProcess: Process? = null
-
+    private lateinit var exitCodeLabel: Label
     private lateinit var editorArea: CodeArea
     private lateinit var outputArea: TextArea
     private lateinit var runButton: Button
@@ -121,6 +121,7 @@ class ScriptRunnerApp : Application() {
         updateStatus("Status: idle")
         preloadSampleScript()
         applyHighlighting()
+        updateExitCode(null)
     }
 
     override fun stop() {
@@ -183,8 +184,9 @@ class ScriptRunnerApp : Application() {
      */
     private fun createStatusBar(): HBox {
         statusLabel = Label("Status: idle")
+        exitCodeLabel = Label("Last exit: n/a")
 
-        val box = HBox(10.0, statusLabel)
+        val box = HBox(10.0, statusLabel, exitCodeLabel)
         box.alignment = Pos.CENTER_LEFT
         box.styleClass.add("status-bar")
 
@@ -211,6 +213,7 @@ class ScriptRunnerApp : Application() {
             writeScriptToTempFile(scriptText)
         } catch (ex: IOException) {
             updateStatus("Status: error writing script file")
+            updateExitCode(-1)
             appendOutput("Error: Failed to write script file: ${ex.message}\n")
             return
         }
@@ -231,6 +234,7 @@ class ScriptRunnerApp : Application() {
             currentProcess = null
             setRunningState(isRunning = false)
             updateStatus("Status: failed to start kotlinc")
+            updateExitCode(-1)
             appendOutput("Error: Failed to start kotlinc process. Is kotlinc on PATH?\n")
             appendOutput("Cause: ${ex.javaClass.simpleName}: ${ex.message}\n")
             cleanupTempFile(scriptFile)
@@ -298,6 +302,7 @@ class ScriptRunnerApp : Application() {
             Platform.runLater {
                 setRunningState(isRunning = false)
                 updateStatus("Status: finished (exit code = $exitCode)")
+                updateExitCode(exitCode)
                 appendOutput("Process finished with exit code $exitCode\n")
             }
         }
@@ -399,5 +404,23 @@ class ScriptRunnerApp : Application() {
         }
 
         return spansBuilder.create()
+    }
+    private fun updateExitCode(exitCode: Int?) {
+        when (exitCode) {
+            null -> {
+                exitCodeLabel.text = "Last exit: n/a"
+                exitCodeLabel.styleClass.removeAll("exit-ok", "exit-error")
+            }
+            0 -> {
+                exitCodeLabel.text = "Last exit: 0"
+                exitCodeLabel.styleClass.removeAll("exit-ok", "exit-error")
+                exitCodeLabel.styleClass.add("exit-ok")
+            }
+            else -> {
+                exitCodeLabel.text = "Last exit: $exitCode"
+                exitCodeLabel.styleClass.removeAll("exit-ok", "exit-error")
+                exitCodeLabel.styleClass.add("exit-error")
+            }
+        }
     }
 }

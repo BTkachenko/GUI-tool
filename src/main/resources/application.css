@@ -88,3 +88,12 @@
     -fx-text-fill: #cccccc;
     -fx-font-size: 11px;
 }
+
+/* Exit code label colors */
+.exit-ok {
+    -fx-text-fill: #4caf50;   /* green */
+}
+
+.exit-error {
+    -fx-text-fill: #f44336;   /* red */
+}
