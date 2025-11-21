@@ -26,7 +26,7 @@ class ScriptRunnerApp : Application() {
          */
         @JvmStatic
         fun main(args: Array<String>) {
-            Application.launch(ScriptRunnerApp::class.java, *args)
+            launch(ScriptRunnerApp::class.java, *args)
         }
     }
 
