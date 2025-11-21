@@ -1,0 +1,90 @@
+/* Base app styling - dark theme */
+.root {
+    -fx-font-family: "JetBrains Mono", "Consolas", "Menlo", "Courier New", monospace;
+    -fx-background-color: #1e1e1e;
+}
+
+/* ===== Toolbar ===== */
+
+.tool-bar {
+    -fx-background-color: linear-gradient(#3c3c3c, #2d2d30);
+    -fx-padding: 4 8 4 8;
+    -fx-spacing: 6;
+    -fx-border-color: #000000;
+    -fx-border-width: 0 0 1 0;
+}
+
+.tool-bar .button {
+    -fx-background-color: #0e639c;
+    -fx-text-fill: white;
+    -fx-background-radius: 4;
+    -fx-padding: 4 12 4 12;
+    -fx-font-weight: bold;
+}
+
+.tool-bar .button:disabled {
+    -fx-background-color: #3c3c3c;
+    -fx-text-fill: #aaaaaa;
+}
+
+/* ===== SplitPane divider ===== */
+
+.split-pane:horizontal > .split-pane-divider {
+    -fx-padding: 0 1 0 1;
+    -fx-background-color: #3c3c3c;
+}
+
+/* ===== Code editor (RichTextFX CodeArea) ===== */
+
+.code-area {
+    -fx-background-color: #1e1e1e;
+    -fx-padding: 6 4 6 4;
+}
+
+/* Actual text inside CodeArea (RichTextFX Text nodes) */
+.code-area .text {
+    -fx-fill: #d4d4d4;        /* normal code color */
+    -fx-font-size: 13px;
+}
+
+/* Line numbers (RichTextFX) */
+.lineno {
+    -fx-background-color: #252526;
+    -fx-text-fill: #858585;
+    -fx-padding: 0 6 0 4;
+    -fx-font-size: 11px;
+}
+
+/* Kotlin keyword highlighting - style name "keyword" from StyleSpans */
+.code-area .keyword {
+    -fx-fill: #c586c0;
+    -fx-font-weight: bold;
+}
+
+/* ===== Output panel (TextArea) ===== */
+
+.output-area {
+    -fx-font-family: "JetBrains Mono", "Consolas", "Menlo", "Courier New", monospace;
+    -fx-font-size: 12px;
+    -fx-control-inner-background: #1e1e1e;
+    -fx-text-fill: #d4d4d4;
+    -fx-highlight-fill: #264f78;
+    -fx-highlight-text-fill: white;
+    -fx-prompt-text-fill: #6a6a6a;
+    -fx-padding: 6 4 6 4;
+}
+
+/* ===== Status bar ===== */
+
+.status-bar {
+    -fx-padding: 4 8 4 8;
+    -fx-spacing: 8;
+    -fx-background-color: #252526;
+    -fx-border-color: #000000;
+    -fx-border-width: 1 0 0 0;
+}
+
+.status-bar .label {
+    -fx-text-fill: #cccccc;
+    -fx-font-size: 11px;
+}

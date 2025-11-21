@@ -14,19 +14,59 @@ import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.stage.Stage
+import org.fxmisc.flowless.VirtualizedScrollPane
+import org.fxmisc.richtext.CodeArea
+import org.fxmisc.richtext.LineNumberFactory
+import org.fxmisc.richtext.model.StyleSpans
+import org.fxmisc.richtext.model.StyleSpansBuilder
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.regex.Matcher
+import java.util.regex.Pattern
 
 /**
  * JavaFX application for running Kotlin scripts (.kts) using `kotlinc -script`.
+ * Uses RichTextFX CodeArea for the editor with basic keyword highlighting.
  */
 class ScriptRunnerApp : Application() {
 
     companion object {
+
+        /**
+         * List of Kotlin keywords to highlight.
+         */
+        private val KOTLIN_KEYWORDS: List<String> = listOf(
+            "fun",
+            "val",
+            "var",
+            "if",
+            "else",
+            "when",
+            "for",
+            "while",
+            "return",
+            "class",
+            "object",
+            "interface",
+            "try",
+            "catch",
+            "finally",
+            "throw",
+            "true",
+            "false",
+            "null",
+            "package",
+            "import"
+        )
+
+        private val KEYWORD_PATTERN: Pattern = Pattern.compile(
+            "(?<KEYWORD>\\b(" + KOTLIN_KEYWORDS.joinToString("|") + ")\\b)"
+        )
+
         /**
          * Application entry point.
          */
@@ -41,7 +81,7 @@ class ScriptRunnerApp : Application() {
     @Volatile
     private var currentProcess: Process? = null
 
-    private lateinit var editorArea: TextArea
+    private lateinit var editorArea: CodeArea
     private lateinit var outputArea: TextArea
     private lateinit var runButton: Button
     private lateinit var stopButton: Button
@@ -51,7 +91,9 @@ class ScriptRunnerApp : Application() {
         editorArea = createEditorArea()
         outputArea = createOutputArea()
 
-        val splitPane = SplitPane(editorArea, outputArea).apply {
+        val editorContainer = VirtualizedScrollPane(editorArea)
+
+        val splitPane = SplitPane(editorContainer, outputArea).apply {
             orientation = Orientation.HORIZONTAL
             setDividerPositions(0.5)
         }
@@ -66,6 +108,10 @@ class ScriptRunnerApp : Application() {
         }
 
         val scene = Scene(root, 1000.0, 600.0)
+        val cssUrl = javaClass.getResource("/application.css")
+        if (cssUrl != null) {
+            scene.stylesheets.add(cssUrl.toExternalForm())
+        }
 
         primaryStage.title = "Kotlin Script Runner"
         primaryStage.scene = scene
@@ -74,6 +120,7 @@ class ScriptRunnerApp : Application() {
         setRunningState(isRunning = false)
         updateStatus("Status: idle")
         preloadSampleScript()
+        applyHighlighting()
     }
 
     override fun stop() {
@@ -82,11 +129,19 @@ class ScriptRunnerApp : Application() {
     }
 
     /**
-     * Creates the editor text area used for script input.
+     * Creates the editor CodeArea used for script input, with line numbers and highlighting.
      */
-    private fun createEditorArea(): TextArea {
-        val area = TextArea()
-        area.promptText = "Write your Kotlin script here..."
+    private fun createEditorArea(): CodeArea {
+        val area = CodeArea()
+        area.paragraphGraphicFactory = LineNumberFactory.get(area)
+        area.styleClass.add("code-area")
+
+        area.richChanges()
+            .filter { change -> !change.isPlainTextIdentity }
+            .subscribe {
+                applyHighlighting()
+            }
+
         HBox.setHgrow(area, Priority.ALWAYS)
         return area
     }
@@ -98,6 +153,7 @@ class ScriptRunnerApp : Application() {
         val area = TextArea()
         area.isEditable = false
         area.promptText = "Script output will appear here..."
+        area.styleClass.add("output-area")
         HBox.setHgrow(area, Priority.ALWAYS)
         return area
     }
@@ -130,7 +186,7 @@ class ScriptRunnerApp : Application() {
 
         val box = HBox(10.0, statusLabel)
         box.alignment = Pos.CENTER_LEFT
-        box.style = "-fx-padding: 4 8 4 8;"
+        box.styleClass.add("status-bar")
 
         return box
     }
@@ -298,6 +354,50 @@ class ScriptRunnerApp : Application() {
             |}
         """.trimMargin()
 
-        editorArea.text = sampleScript
+        editorArea.replaceText(sampleScript)
+    }
+
+    /**
+     * Recomputes syntax highlighting for the current editor content.
+     */
+    private fun applyHighlighting() {
+        val text = editorArea.text
+        val highlighting = computeHighlighting(text)
+        editorArea.setStyleSpans(0, highlighting)
+    }
+
+    /**
+     * Computes style spans for Kotlin keyword highlighting.
+     */
+    private fun computeHighlighting(text: String): StyleSpans<MutableCollection<String>> {
+        val matcher: Matcher = KEYWORD_PATTERN.matcher(text)
+        var lastKwEnd = 0
+        val spansBuilder = StyleSpansBuilder<MutableCollection<String>>()
+
+        while (matcher.find()) {
+            val styleClass: MutableCollection<String> =
+                if (matcher.group("KEYWORD") != null) {
+                    mutableListOf("keyword")
+                } else {
+                    mutableListOf()
+                }
+
+            val start = matcher.start()
+            val end = matcher.end()
+
+            if (start > lastKwEnd) {
+                spansBuilder.add(mutableListOf(), start - lastKwEnd)
+            }
+
+            spansBuilder.add(styleClass, end - start)
+            lastKwEnd = end
+        }
+
+        val remaining = text.length - lastKwEnd
+        if (remaining > 0) {
+            spansBuilder.add(mutableListOf(), remaining)
+        }
+
+        return spansBuilder.create()
     }
 }

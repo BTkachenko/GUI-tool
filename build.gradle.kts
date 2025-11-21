@@ -16,6 +16,12 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib"))
+    implementation("org.fxmisc.richtext:richtextfx:0.11.0")
+    testImplementation(kotlin("test"))
+}
+
+dependencies {
+    implementation(kotlin("stdlib"))
     testImplementation(kotlin("test"))
 }
 
